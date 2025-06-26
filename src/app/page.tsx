@@ -1,93 +1,128 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
+
+import { useEffect, useState, useRef, useCallback } from "react";
 import PlotCanvas, { Post } from "./components/PlotCanvas";
 import Sidebar from "./components/Sidebar";
+import { useTheme } from "./context/ThemeContext";
 
-export default function Home() {
+export default function ResizableLayout() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [sidebarWidth, setSidebarWidth] = useState(300);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const isDragging = useRef(false);
   const [canvasDimensions, setCanvasDimensions] = useState({ width: 0, height: 0 });
+  const canvasContainerRef = useRef<HTMLDivElement | null>(null);
+  const isDragging = useRef(false);
+  const throttledResize = useRef<NodeJS.Timeout | null>(null);
+  const { theme, toggleTheme } = useTheme();
 
-  // Fetch posts on mount
   useEffect(() => {
-    const fetchPosts = async () => {
-      try {
-        const response = await fetch("/api/posts");
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const data = await response.json();
-        setPosts(data);
-      } catch (error) {
-        console.error("Could not fetch posts:", error);
-      }
-    };
-    fetchPosts();
+    fetch("/api/posts")
+      .then((res) => res.json())
+      .then(setPosts)
+      .catch((err) => console.error("Failed to fetch posts:", err));
   }, []);
 
-  // Resize canvas when sidebar resizes or window resizes
-  const updateCanvasDimensions = () => {
-    if (containerRef.current) {
-      const containerRect = containerRef.current.getBoundingClientRect();
-      const calculatedWidth = containerRect.width - sidebarWidth - 6; // Subtract handle width
+  const updateCanvasDimensions = useCallback(() => {
+    if (canvasContainerRef.current) {
+      const rect = canvasContainerRef.current.getBoundingClientRect();
       setCanvasDimensions({
-        width: Math.max(calculatedWidth, 100),
-        height: containerRect.height,
+        width: Math.max(rect.width, 100),
+        height: rect.height,
       });
     }
-  };
-
-  useEffect(() => {
-    updateCanvasDimensions(); // Initial call
-    window.addEventListener("resize", updateCanvasDimensions);
-
-    return () => {
-      window.removeEventListener("resize", updateCanvasDimensions);
-    };
-  }, [sidebarWidth, containerRef.current]); // Add dependency array to prevent unnecessary calls
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging.current) return;
-      const newWidth = Math.min(Math.max(window.innerWidth - e.clientX, 150), window.innerWidth - 100);
-      setSidebarWidth(newWidth);
-    };
-
-    const stopDragging = () => {
-      isDragging.current = false;
-    };
-
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", stopDragging);
-
-    return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", stopDragging);
-    };
   }, []);
 
-  return (
-    <div
-      ref={containerRef}
-      style={{ display: "flex", width: "100vw", height: "100vh", overflow: "hidden" }}
+  useEffect(() => {
+    const handleResize = () => {
+      if (throttledResize.current) clearTimeout(throttledResize.current);
+      throttledResize.current = setTimeout(updateCanvasDimensions, 16);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      if (throttledResize.current) clearTimeout(throttledResize.current);
+    };
+  }, [updateCanvasDimensions]);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    isDragging.current = true;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    document.querySelectorAll("canvas, iframe").forEach((el) => {
+      (el as HTMLElement).style.pointerEvents = "none";
+    });
+  };
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging.current) return;
+    const newWidth = Math.max(150, Math.min(window.innerWidth - e.clientX, 800));
+    setSidebarWidth(newWidth);
+  }, []);
+
+  const handleMouseUp = useCallback(() => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+
+    document.querySelectorAll("canvas, iframe").forEach((el) => {
+      (el as HTMLElement).style.pointerEvents = "";
+    });
+
+    updateCanvasDimensions();
+  }, [updateCanvasDimensions]);
+
+  // Add mousemove/up listeners
+  useEffect(() => {
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [handleMouseMove, handleMouseUp]);
+
+  // Update canvas size when sidebar changes
+  useEffect(() => {
+    updateCanvasDimensions();
+  }, [sidebarWidth, updateCanvasDimensions]);
+
+return (
+  <div
+    className={`flex w-screen h-screen overflow-hidden ${
+      theme === "dark" ? "bg-gray-900" : "bg-white"
+    }`}
+  >
+    {/* Canvas area */}
+    <div 
+      ref={canvasContainerRef} 
+      className="relative"
+      style={{ width: `calc(100vw - ${sidebarWidth}px - 6px)` }}
     >
-      {/* Canvas area */}
-      <div style={{ flexGrow: 1 }}>
-        <PlotCanvas posts={posts} width={canvasDimensions.width} height={canvasDimensions.height} />
-      </div>
+      <PlotCanvas posts={posts} />
+    </div>
 
-      {/* Drag handle */}
-      <div
-        onMouseDown={() => (isDragging.current = true)}
-        style={{
-          width: "6px",
-          cursor: "col-resize",
-          backgroundColor: "#ccc",
-        }}
-      />
+    {}
+    <div
+      onMouseDown={handleMouseDown}
+      className={`w-[6px] cursor-col-resize hover:bg-blue-500 transition-colors ${
+        theme === "dark" ? "bg-gray-700" : "bg-gray-300"
+      }`}
+      style={{ zIndex: 10 }}
+    />
 
-      {/* Sidebar */}
+    {}
+    <div 
+      className="flex-shrink-0"
+      style={{ width: sidebarWidth }}
+    >
       <Sidebar width={sidebarWidth} posts={posts} />
     </div>
-  );
+
+    {}
+    
+
+  </div>
+);
 }

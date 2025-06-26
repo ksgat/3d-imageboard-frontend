@@ -14,28 +14,35 @@ interface Post {
 
 interface PlotCanvasProps {
     posts: Post[];
-    width: number;
-    height: number;
 }
 
-const PlotCanvas: React.FC<PlotCanvasProps> = ({ posts, width, height }) => {
+const PlotCanvas: React.FC<PlotCanvasProps> = ({ posts }) => {
     const mountRef = useRef<HTMLDivElement>(null);
     const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+    const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+    const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+    const controlsRef = useRef<OrbitControls | null>(null);
 
     useEffect(() => {
         if (!mountRef.current) return;
 
-        // Scene setup
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color('#f5f5dc');
-        const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(Math.max(width, 300), Math.max(height, 300)); // Ensure minimum size
+        scene.background = new THREE.Color('black');
 
+        const containerWidth = mountRef.current.clientWidth;
+        const containerHeight = mountRef.current.clientHeight;
+
+        const camera = new THREE.PerspectiveCamera(75, containerWidth / containerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+
+        rendererRef.current = renderer;
+        cameraRef.current = camera;
+
+        renderer.setSize(containerWidth, containerHeight);
         mountRef.current.appendChild(renderer.domElement);
 
-        // Orbit controls
         const controls = new OrbitControls(camera, renderer.domElement);
+        controlsRef.current = controls;
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
         controls.minDistance = 1;
@@ -46,17 +53,15 @@ const PlotCanvas: React.FC<PlotCanvasProps> = ({ posts, width, height }) => {
         controls.panSpeed = 0.5;
         controls.update();
 
-        // Lights
         const ambientLight = new THREE.AmbientLight(0x404040);
         scene.add(ambientLight);
         const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
         directionalLight.position.set(1, 1, 1);
         scene.add(directionalLight);
 
-        // Grid
         const gridSize = 10;
         const gridDivisions = 20;
-        const gridColor = '#d3d3d3';
+        const gridColor = '#808080';
 
         const gridHelperXZ = new THREE.GridHelper(gridSize, gridDivisions, gridColor, gridColor);
         scene.add(gridHelperXZ);
@@ -72,7 +77,6 @@ const PlotCanvas: React.FC<PlotCanvasProps> = ({ posts, width, height }) => {
         const axesHelper = new THREE.AxesHelper(2);
         scene.add(axesHelper);
 
-        // Render posts
         const spheres: THREE.Mesh[] = [];
 
         posts.forEach((post, index) => {
@@ -86,14 +90,12 @@ const PlotCanvas: React.FC<PlotCanvasProps> = ({ posts, width, height }) => {
             sphere.userData = { post };
             spheres.push(sphere);
 
-            // Add label
             const label = createTextLabel(post.title, sphere);
             scene.add(label);
 
             scene.add(sphere);
         });
 
-        // Raycasting and Hover/Click Effects
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
         let hoveredSphere: THREE.Mesh | null = null;
@@ -101,24 +103,24 @@ const PlotCanvas: React.FC<PlotCanvasProps> = ({ posts, width, height }) => {
         const onMouseMove = (event: MouseEvent) => {
             if (!mountRef.current) return;
             const rect = renderer.domElement.getBoundingClientRect();
-            mouse.x = -(((event.clientX - rect.left) / rect.width) * 2 - 1); // Invert X-axis
-            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 - 1; // Invert Y-axis
+            mouse.x = -(((event.clientX - rect.left) / rect.width) * 2 - 1);
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 - 1;
 
             raycaster.setFromCamera(mouse, camera);
             const intersects = raycaster.intersectObjects(spheres);
 
             if (intersects.length > 0) {
-            const sphere = intersects[0].object as THREE.Mesh;
-            if (hoveredSphere !== sphere) {
-                if (hoveredSphere) {
-                (hoveredSphere.material as THREE.MeshPhongMaterial).emissive.setHex(0x000000);
+                const sphere = intersects[0].object as THREE.Mesh;
+                if (hoveredSphere !== sphere) {
+                    if (hoveredSphere) {
+                        (hoveredSphere.material as THREE.MeshPhongMaterial).emissive.setHex(0x000000);
+                    }
+                    (sphere.material as THREE.MeshPhongMaterial).emissive.setHex(0x444444);
+                    hoveredSphere = sphere;
                 }
-                (sphere.material as THREE.MeshPhongMaterial).emissive.setHex(0x444444);
-                hoveredSphere = sphere;
-            }
             } else if (hoveredSphere) {
-            (hoveredSphere.material as THREE.MeshPhongMaterial).emissive.setHex(0x000000);
-            hoveredSphere = null;
+                (hoveredSphere.material as THREE.MeshPhongMaterial).emissive.setHex(0x000000);
+                hoveredSphere = null;
             }
         };
 
@@ -130,7 +132,7 @@ const PlotCanvas: React.FC<PlotCanvasProps> = ({ posts, width, height }) => {
             mouseClick.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
             raycaster.setFromCamera(mouseClick, camera);
             const intersects = raycaster.intersectObjects(spheres);
-            
+
             if (intersects.length > 0) {
                 const sphere = intersects[0].object as THREE.Mesh;
                 (sphere.material as THREE.MeshPhongMaterial).emissive.setHex(0x888800);
@@ -141,7 +143,6 @@ const PlotCanvas: React.FC<PlotCanvasProps> = ({ posts, width, height }) => {
         mountRef.current.addEventListener('mousemove', onMouseMove, false);
         mountRef.current.addEventListener('click', onMouseClick, false);
 
-        // Text Label Function
         function createTextLabel(text: string, parent: THREE.Mesh): THREE.Sprite {
             const canvas = document.createElement('canvas');
             canvas.width = 256;
@@ -152,7 +153,7 @@ const PlotCanvas: React.FC<PlotCanvasProps> = ({ posts, width, height }) => {
             context.font = 'Bold 20px Arial';
             context.fillStyle = 'white';
             context.textAlign = 'center';
-            context.fillText(text, canvas.width / 2, canvas.height / 2);
+            context.fillText(text, canvas.width / 2, canvas.height / 2 + 8);
 
             const texture = new THREE.CanvasTexture(canvas);
             const material = new THREE.SpriteMaterial({ map: texture });
@@ -165,13 +166,25 @@ const PlotCanvas: React.FC<PlotCanvasProps> = ({ posts, width, height }) => {
             return sprite;
         }
 
-        // Point Info Display
         function displayPointInfo(post: Post) {
             console.log("Clicked Post:", post);
             setSelectedPost(post);
         }
 
-        // Animation loop
+        const handleResize = () => {
+            if (!mountRef.current || !camera || !renderer) return;
+
+            const containerWidth = mountRef.current.clientWidth;
+            const containerHeight = mountRef.current.clientHeight;
+
+            camera.aspect = containerWidth / containerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(containerWidth, containerHeight);
+        };
+
+        const resizeObserver = new ResizeObserver(handleResize);
+        resizeObserver.observe(mountRef.current);
+
         const animate = () => {
             requestAnimationFrame(animate);
             controls.update();
@@ -180,26 +193,12 @@ const PlotCanvas: React.FC<PlotCanvasProps> = ({ posts, width, height }) => {
 
         animate();
 
-        const handleResize = () => {
-            if (!mountRef.current) return;
-            const containerWidth = mountRef.current.clientWidth;
-            const containerHeight = mountRef.current.clientHeight;
-        
-            camera.aspect = containerWidth / containerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(containerWidth, containerHeight);
-        };
-
-
-        window.addEventListener('resize', handleResize);
-        handleResize(); // Initial adjustment
-
-        // Cleanup
         return () => {
             if (!mountRef.current) return;
-            
-            // Remove all scene children
-            while(scene.children.length > 0) {
+
+            resizeObserver.disconnect();
+
+            while (scene.children.length > 0) {
                 const child = scene.children[0];
                 if (child instanceof THREE.Mesh) {
                     child.geometry.dispose();
@@ -211,20 +210,25 @@ const PlotCanvas: React.FC<PlotCanvasProps> = ({ posts, width, height }) => {
                 }
                 scene.remove(child);
             }
-        
-            mountRef.current.removeChild(renderer.domElement);
-            window.removeEventListener('resize', handleResize);
+
+            if (mountRef.current.contains(renderer.domElement)) {
+                mountRef.current.removeChild(renderer.domElement);
+            }
             mountRef.current.removeEventListener('mousemove', onMouseMove);
             mountRef.current.removeEventListener('click', onMouseClick);
             renderer.dispose();
         };
-    }, [posts, width, height]);
+    }, [posts]);
 
     return (
-        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-            <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
+        <div className="relative w-full h-full">
+            <div ref={mountRef} className="w-full h-full" />
             {selectedPost && (
-                <PostView selectedPost={selectedPost} onClose={() => setSelectedPost(null)} />
+                <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center">
+                    <div className="w-[70%] h-[70%]">
+                        <PostView selectedPost={selectedPost} onClose={() => setSelectedPost(null)} />
+                    </div>
+                </div>
             )}
         </div>
     );
@@ -232,4 +236,3 @@ const PlotCanvas: React.FC<PlotCanvasProps> = ({ posts, width, height }) => {
 
 export default PlotCanvas;
 export type { Post };
-

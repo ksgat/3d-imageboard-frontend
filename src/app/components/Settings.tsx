@@ -1,8 +1,8 @@
 export default function Settings() {
   return (
-    <div>
-      <h2 style={{ color: "#000" }}>Settings</h2>
-      <p style={{ color: "#000" }}>Settings content goes here.</p>
+    <div className="text-white">
+      <h2 className="text-white">Settings</h2>
+      <p className="text-white">Settings content goes here.</p>
     </div>
   );
 }

@@ -2,35 +2,26 @@ import { Post } from "./PlotCanvas";
 import { useState } from "react";
 import Posts from "./Post";
 import Settings from "./Settings";
+import { useTheme } from "../context/ThemeContext";
 
 export default function Sidebar({ width, posts }: { width: number; posts: Post[] }) {
   const [activeTab, setActiveTab] = useState("Posts");
+  const { theme } = useTheme();
 
   return (
     <div
-      style={{
-        width,
-        height: "100%",
-        backgroundColor: "#f4f4f4",
-        padding: "1rem",
-        boxSizing: "border-box",
-        overflowY: "auto",
-      }}
+      className="h-full p-4 box-border overflow-y-auto sidebar bg-black text-white"
+      style={{ width }}
     >
       {/* Tabs */}
-      <div style={{ display: "flex", marginBottom: "1rem" }}>
+      <div className="flex mb-4 gap-2">
         {["Posts", "Settings"].map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            style={{
-              flex: 1,
-              padding: "0.5rem",
-              backgroundColor: activeTab === tab ? "#ddd" : "#fff",
-              border: "1px solid #ccc",
-              cursor: "pointer",
-              color: "#000",
-            }}
+            className={`flex-1 p-2 border border-gray-700 rounded cursor-pointer text-white ${
+              activeTab === tab ? "bg-gray-700" : "bg-black"
+            }`}
           >
             {tab}
           </button>
@@ -38,7 +29,7 @@ export default function Sidebar({ width, posts }: { width: number; posts: Post[]
       </div>
 
       {/* Tab Content */}
-      <div style={{ marginTop: "1rem" }}>
+      <div className="mt-4">
         {activeTab === "Posts" && <Posts posts={posts} />}
         {activeTab === "Settings" && <Settings />}
       </div>

@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.50.1",
+    "@types/lodash": "^4.17.18",
+    "lodash": "^4.17.21",
     "next": "15.3.4",
     "next-cloudinary": "^6.16.0",
     "react": "^19.0.0",

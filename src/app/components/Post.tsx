@@ -34,7 +34,6 @@ async function uploadToCloudinary(webpBlob: Blob): Promise<string> {
   return data.secure_url;
 }
 
-
 export default function Posts({ posts }: { posts: Post[] }) {
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
@@ -43,10 +42,7 @@ export default function Posts({ posts }: { posts: Post[] }) {
   const handleImageUpload = async () => {
     if (!image) return null;
 
-    // Convert image to webp format
     const webpBlob = await convertToWebP(image);
-
-    // Upload to Cloudinary
     const imageUrl = await uploadToCloudinary(webpBlob);
     return imageUrl;
   };
@@ -54,11 +50,11 @@ export default function Posts({ posts }: { posts: Post[] }) {
   const handleSubmit = async () => {
     const imageUrl = await handleImageUpload();
     const requestBody = { 
-      title, // Title first
-      text,  // Text second
-      image_url: imageUrl || "" // Image URL last
+      title,
+      text,
+      image_url: imageUrl || ""
     };
-    console.log("Request Body:", requestBody); // Log the request body
+    console.log("Request Body:", requestBody);
     const response = await fetch("/api/post", {
       method: "POST",
       body: JSON.stringify(requestBody),
@@ -67,92 +63,50 @@ export default function Posts({ posts }: { posts: Post[] }) {
     if (response.ok) {
       alert("Post created successfully!");
     } else {
-      alert("Failed to create post. ");
+      alert("Failed to create post.");
     }
   };
 
   return (
-    <div>
-      <h2 style={{ color: "#000" }}>Posts</h2>
+    <div className="bg-black text-white min-h-screen">
+      <h2 className="text-white text-2xl font-bold mb-4">Posts</h2>
       <form
         onSubmit={(e) => {
           e.preventDefault();
           handleSubmit();
         }}
-        style={{
-          marginBottom: "2rem",
-          padding: "1rem",
-          backgroundColor: "#f9f9f9",
-          border: "1px solid #ddd",
-          borderRadius: "4px",
-          color: "#000", // Ensure form text is black
-        }}
+        className="mb-8 p-4 bg-black border border-gray-600 rounded"
       >
         <input
           type="text"
           placeholder="Title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          style={{
-            display: "block",
-            marginBottom: "1rem",
-            width: "100%",
-            color: "#000", // Ensure input text is black
-          }}
+          className="block mb-4 w-full p-2 border border-gray-600 rounded bg-black text-white"
         />
         <textarea
           placeholder="Text"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          style={{
-            display: "block",
-            marginBottom: "1rem",
-            width: "100%",
-            color: "#000", // Ensure textarea text is black
-          }}
+          className="block mb-4 w-full p-2 border border-gray-600 rounded bg-black text-white"
         />
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => setImage(e.target.files?.[0] || null)}
-          style={{
-            display: "block",
-            marginBottom: "1rem",
-            color: "#000", // Ensure file input text is black
-          }}
-        />
+        <label className="block mb-4 text-white">
+          Upload Image
+          <input
+            type="file"
+            accept="image/*"
+            title="Upload an image"
+            onChange={(e) => setImage(e.target.files?.[0] || null)}
+            className="block mt-2 text-white"
+          />
+        </label>
         <button
           type="submit"
-          style={{
-            display: "block",
-            width: "100%",
-            color: "#000", // Ensure button text is black
-          }}
+          className="block w-full p-2 bg-black text-white border border-gray-600 rounded hover:bg-gray-800"
         >
           Submit
         </button>
       </form>
-      {posts.map((post, i) => (
-        <div
-          key={i}
-          style={{
-            marginBottom: "1rem",
-            padding: "0.75rem",
-            backgroundColor: "#fff",
-            border: "1px solid #ddd",
-            borderRadius: "4px",
-            boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-            color: "#000", // Ensure post text is black
-          }}
-        >
-          <h3 style={{ color: "#000" }}>{post.title}</h3>
-          <p style={{ color: "#000" }}>{post.post_content_text}</p>
-          {post.post_content_image && (
-            <img src={post.post_content_image} alt={post.title} width="100%" />
-          )}
-        </div>
-      ))}
     </div>
   );
 }
-
